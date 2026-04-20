@@ -1,0 +1,10 @@
+server:
+  port: 8080
+  patch_server_url: "http://localhost:8080"
+
+auth:
+  api_key: "dev-api-key-change-in-production"
+
+storage:
+  data_dir: "./data"
+  max_upload_size_mb: 500

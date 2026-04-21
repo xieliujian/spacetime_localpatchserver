@@ -39,16 +39,18 @@ func main() {
 	downloadHandler := api.NewDownloadHandler(storageMgr)
 	uploadHandler := api.NewUploadHandler(storageMgr, cfg.Storage.MaxUploadSizeMB)
 
+	// 公开接口（无需认证）
 	r.GET("/api/config", configHandler.GetConfig)
 	r.GET("/api/version/latest", versionHandler.GetLatest)
+	r.GET("/api/versions", versionHandler.GetAll)
+	r.GET("/api/versions/:id", versionHandler.GetDetail)
 	r.GET("/api/download/:version/*filepath", downloadHandler.Download)
 
+	// 需要认证的接口
 	authGroup := r.Group("/api")
 	authGroup.Use(auth.APIKeyMiddleware(cfg.Auth.APIKey))
 	{
 		authGroup.POST("/upload", uploadHandler.Upload)
-		authGroup.GET("/versions", versionHandler.GetAll)
-		authGroup.GET("/versions/:id", versionHandler.GetDetail)
 		authGroup.DELETE("/versions/:id", versionHandler.Delete)
 	}
 

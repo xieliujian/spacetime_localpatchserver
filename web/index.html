@@ -17,6 +17,8 @@
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background: #f0f0f0; font-weight: bold; }
+        tbody tr { cursor: pointer; }
+        tbody tr:hover { background: #f9f9f9; }
         .delete-btn { padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; }
         .delete-btn:hover { background: #c82333; }
         .status { margin-top: 10px; padding: 10px; border-radius: 4px; }
@@ -76,12 +78,14 @@
 
                 data.versions.forEach(v => {
                     const row = tbody.insertRow();
+                    row.style.cursor = 'pointer';
+                    row.onclick = () => window.open(`/version.html?id=${v.version}`, '_blank');
                     row.innerHTML = `
                         <td>${v.version}</td>
                         <td>${formatDate(v.upload_time)}</td>
                         <td>${v.file_count}</td>
                         <td>${formatBytes(v.total_size)}</td>
-                        <td><button class="delete-btn" onclick="deleteVersion(${v.version})">删除</button></td>
+                        <td><button class="delete-btn" onclick="event.stopPropagation(); deleteVersion(${v.version})">删除</button></td>
                     `;
                 });
             } catch (err) {

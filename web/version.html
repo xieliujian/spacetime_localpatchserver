@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>版本详情</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .nav { margin-bottom: 20px; }
+        .nav a { color: #007bff; text-decoration: none; }
+        .nav a:hover { text-decoration: underline; }
+        h1 { margin-bottom: 6px; color: #333; }
+        .meta { color: #666; font-size: 14px; margin-bottom: 20px; }
+        .meta span { margin-right: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #ddd; font-size: 14px; }
+        th { background: #f0f0f0; font-weight: bold; }
+        tbody tr:hover { background: #f9f9f9; }
+        .download-link { color: #007bff; text-decoration: none; }
+        .download-link:hover { text-decoration: underline; }
+        .loading { color: #666; padding: 20px 0; }
+        .error { color: #dc3545; padding: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">← 返回版本列表</a>
+        </div>
+
+        <h1 id="title">版本详情</h1>
+        <div class="meta" id="meta"></div>
+
+        <table id="fileTable">
+            <thead>
+                <tr>
+                    <th>文件路径</th>
+                    <th>大小</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody><tr><td colspan="3" class="loading">加载中...</td></tr></tbody>
+        </table>
+    </div>
+
+    <script>
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function formatDate(dateStr) {
+            return new Date(dateStr).toLocaleString('zh-CN');
+        }
+
+        async function loadVersion() {
+            const id = new URLSearchParams(location.search).get('id');
+            if (!id) {
+                document.querySelector('#fileTable tbody').innerHTML =
+                    '<tr><td colspan="3" class="error">缺少版本号参数</td></tr>';
+                return;
+            }
+
+            document.getElementById('title').textContent = `版本 ${id}`;
+            document.title = `版本 ${id} - 资源热更服务器`;
+
+            try {
+                const res = await fetch(`/api/versions/${id}`);
+                if (!res.ok) {
+                    throw new Error(`版本 ${id} 不存在`);
+                }
+                const v = await res.json();
+
+                document.getElementById('meta').innerHTML =
+                    `<span>上传时间：${formatDate(v.upload_time)}</span>` +
+                    `<span>文件数量：${v.file_count}</span>` +
+                    `<span>总大小：${formatBytes(v.total_size)}</span>`;
+
+                const tbody = document.querySelector('#fileTable tbody');
+                if (!v.files || v.files.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3">暂无文件</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = v.files.map(f => `
+                    <tr>
+                        <td>${f.path}</td>
+                        <td>${formatBytes(f.size)}</td>
+                        <td><a class="download-link" href="/api/download/${id}/${f.path}" download="${f.path}">下载</a></td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                document.querySelector('#fileTable tbody').innerHTML =
+                    `<tr><td colspan="3" class="error">${err.message}</td></tr>`;
+            }
+        }
+
+        loadVersion();
+    </script>
+</body>
+</html>

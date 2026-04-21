@@ -29,9 +29,13 @@ func main() {
 
 	r := gin.Default()
 
+	// 静态文件和页面
 	r.StaticFS("/web", http.Dir("./web"))
 	r.GET("/", func(c *gin.Context) {
 		c.File("./web/index.html")
+	})
+	r.GET("/version.html", func(c *gin.Context) {
+		c.File("./web/version.html")
 	})
 
 	configHandler := api.NewConfigHandler(cfg.Server.PatchServerURL, storageMgr)

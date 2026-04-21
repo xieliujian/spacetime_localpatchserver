@@ -41,6 +41,12 @@ func checkStatus(name string, got, want int) bool {
 	return true
 }
 
+func pause(message string) {
+	fmt.Printf("\n%s\n", message)
+	fmt.Print("按回车继续...")
+	fmt.Scanln()
+}
+
 // --- 测试：获取配置 ---
 func testGetConfig() {
 	fmt.Println("\n[Test] GET /api/config")
@@ -72,14 +78,17 @@ func testUpload() int {
 
 	file1 := filepath.Join(tmpDir, "scene1.unity3d")
 	file2 := filepath.Join(tmpDir, "ui", "main.prefab")
+	file3 := filepath.Join(tmpDir, "audio", "bgm.mp3")
 	os.MkdirAll(filepath.Dir(file2), 0755)
-	os.WriteFile(file1, []byte("fake unity bundle content 1"), 0644)
-	os.WriteFile(file2, []byte("fake prefab content 2"), 0644)
+	os.MkdirAll(filepath.Dir(file3), 0755)
+	os.WriteFile(file1, []byte("This is a fake Unity scene bundle for testing"), 0644)
+	os.WriteFile(file2, []byte("This is a fake UI prefab for testing"), 0644)
+	os.WriteFile(file3, []byte("This is a fake audio file for testing"), 0644)
 
 	// 构建 multipart form
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
-	for _, path := range []string{file1, file2} {
+	for _, path := range []string{file1, file2, file3} {
 		fw, err := w.CreateFormFile("files", filepath.Base(path))
 		if !check("create form file "+filepath.Base(path), err) {
 			return 0
@@ -108,6 +117,8 @@ func testUpload() int {
 	if v, ok := result["version"]; ok {
 		version = int(v.(float64))
 		fmt.Printf("  [PASS] uploaded version: %d\n", version)
+		fmt.Printf("  [INFO] uploaded files: %v\n", result["uploaded_files"])
+		fmt.Printf("  [INFO] total size: %v bytes\n", result["total_size"])
 		pass++
 	} else {
 		fmt.Println("  [FAIL] missing version in response")
@@ -151,6 +162,8 @@ func testGetLatestVersion() {
 	json.NewDecoder(resp.Body).Decode(&result)
 	if v, ok := result["version"]; ok {
 		fmt.Printf("  [PASS] latest version: %v\n", v)
+		fmt.Printf("  [INFO] upload_time: %v\n", result["upload_time"])
+		fmt.Printf("  [INFO] file_count: %v\n", result["file_count"])
 		pass++
 	} else {
 		fmt.Println("  [FAIL] missing version")
@@ -202,6 +215,7 @@ func testDownload(version int) {
 	body, _ := io.ReadAll(resp.Body)
 	if len(body) > 0 {
 		fmt.Printf("  [PASS] downloaded %d bytes\n", len(body))
+		fmt.Printf("  [INFO] content: %s\n", string(body))
 		pass++
 	} else {
 		fmt.Println("  [FAIL] empty response body")
@@ -240,7 +254,7 @@ func testDeleteVersion(version int) {
 }
 
 func main() {
-	fmt.Println("=== Patch Server Test ===")
+	fmt.Println("=== Patch Server Integration Test ===")
 	fmt.Printf("Server: %s\n", serverURL)
 	fmt.Printf("Time:   %s\n", time.Now().Format("2006-01-02 15:04:05"))
 
@@ -249,19 +263,49 @@ func main() {
 	if err != nil {
 		fmt.Printf("\n[ERROR] Server not reachable at %s\n", serverURL)
 		fmt.Println("Please start the server first: go run cmd/server/main.go -config config.yaml")
+		pause("按回车退出...")
 		os.Exit(1)
 	}
 
+	// 基础测试
 	testGetConfig()
 	testUploadUnauthorized()
+
+	// 上传测试
 	version := testUpload()
 	testGetLatestVersion()
 	testGetVersions()
+
+	// 暂停，让用户查看 web 界面
+	fmt.Println("\n" + "============================================================")
+	fmt.Printf("✅ 上传成功！版本号: %d\n", version)
+	fmt.Printf("📂 数据目录: ./data/versions/%d/\n", version)
+	fmt.Printf("🌐 Web 界面: %s\n", serverURL)
+	fmt.Println("============================================================")
+	pause("现在可以打开浏览器访问 Web 界面查看上传的版本。")
+
+	// 下载测试
 	testDownload(version)
 	testDownloadNotFound()
-	testDeleteVersion(version)
+
+	// 询问是否删除
+	fmt.Println("\n" + "============================================================")
+	fmt.Printf("⚠️  即将删除版本 %d\n", version)
+	fmt.Println("============================================================")
+	fmt.Print("是否删除此版本？(y/n): ")
+	var answer string
+	fmt.Scanln(&answer)
+
+	if answer == "y" || answer == "Y" {
+		testDeleteVersion(version)
+		fmt.Println("\n✅ 版本已删除，可以刷新 Web 界面确认")
+	} else {
+		fmt.Println("\n⏭️  跳过删除，版本保留在服务器上")
+	}
 
 	fmt.Printf("\n=== Results: %d passed, %d failed ===\n", pass, fail)
+	pause("\n测试完成，按回车退出...")
+
 	if fail > 0 {
 		os.Exit(1)
 	}
